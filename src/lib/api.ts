@@ -264,19 +264,20 @@ class MaintainerrApi {
     }
   }
 
-  async addToCollection(plexId: string, collectionId: number, tmdbId?: number): Promise<ApiResponse<boolean>> {
+  async addToCollection(plexId: string, collectionId: number, mediaType: 'movie' | 'tv'): Promise<ApiResponse<boolean>> {
     try {
-      // Build request body with all fields Maintainerr might expect
-      const requestBody: Record<string, unknown> = { 
-        collectionId,
-        plexId: parseInt(plexId, 10),
-        isManual: true
-      };
+      // Convert our type to Plex data type enum: 1 = MOVIES, 2 = SHOWS
+      const plexDataType = mediaType === 'movie' ? 1 : 2;
       
-      // Add tmdbId if available
-      if (tmdbId) {
-        requestBody.tmdbId = tmdbId;
-      }
+      const requestBody = {
+        mediaId: parseInt(plexId, 10),
+        collectionId,
+        action: 0, // 0 = add, 1 = remove
+        context: {
+          id: parseInt(plexId, 10),
+          type: plexDataType
+        }
+      };
       
       console.log('[API] addToCollection request:', {
         url: `${this.getBaseUrl()}/api/collections/media/add`,
