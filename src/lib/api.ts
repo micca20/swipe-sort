@@ -1,11 +1,15 @@
 // Maintainerr API Service
-// Note: This is a placeholder implementation. Update endpoints based on actual Maintainerr API docs.
+// Updated to use correct Maintainerr API endpoints
 
 import type { 
   MaintainerrConfig, 
   MediaItem, 
   Collection, 
-  ApiResponse 
+  ApiResponse,
+  PlexLibrary,
+  PlexMediaItem,
+  PlexLibraryContent,
+  MaintainerrCollection
 } from '@/types/maintainerr';
 
 class MaintainerrApi {
@@ -35,13 +39,14 @@ class MaintainerrApi {
 
   async testConnection(): Promise<ApiResponse<boolean>> {
     try {
-      const response = await fetch(`${this.getBaseUrl()}/api/status`, {
+      // Correct endpoint: /api/app/status
+      const response = await fetch(`${this.getBaseUrl()}/api/app/status`, {
         method: 'GET',
         headers: this.getHeaders(),
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
+        if (response.status === 401 || response.status === 403) {
           return { success: false, error: 'Invalid API key' };
         }
         return { success: false, error: `Connection failed: ${response.statusText}` };
@@ -56,40 +61,87 @@ class MaintainerrApi {
     }
   }
 
-  async getMedia(): Promise<ApiResponse<MediaItem[]>> {
+  async getPlexLibraries(): Promise<ApiResponse<PlexLibrary[]>> {
     try {
-      // Placeholder: Adjust endpoint based on actual Maintainerr API
-      const response = await fetch(`${this.getBaseUrl()}/api/media`, {
+      const response = await fetch(`${this.getBaseUrl()}/api/plex/libraries`, {
         method: 'GET',
         headers: this.getHeaders(),
       });
 
       if (!response.ok) {
-        return { success: false, error: `Failed to fetch media: ${response.statusText}` };
+        return { success: false, error: `Failed to fetch libraries: ${response.statusText}` };
       }
 
       const data = await response.json();
-      
-      // Transform API response to our MediaItem format
-      // This mapping will need adjustment based on actual API response structure
-      const mediaItems: MediaItem[] = (data.items || data || []).map((item: any) => ({
-        id: item.id,
-        title: item.title || item.name,
-        year: item.year || new Date(item.releaseDate || item.firstAirDate).getFullYear(),
-        type: item.mediaType === 'movie' ? 'movie' : 'tv',
-        overview: item.overview || '',
-        posterPath: item.posterPath || item.poster_path,
-        backdropPath: item.backdropPath || item.backdrop_path,
-        genres: item.genres || [],
-        runtime: item.runtime,
-        seasons: item.numberOfSeasons || item.seasons,
-        addedAt: item.addedAt || item.createdAt,
-        lastWatchedAt: item.lastWatchedAt,
-        collections: item.collections || [],
-        isExcluded: item.isExcluded || false,
-      }));
+      return { success: true, data: data || [] };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to fetch libraries' 
+      };
+    }
+  }
 
-      return { success: true, data: mediaItems };
+  async getLibraryContent(libraryId: string, page: number = 0): Promise<ApiResponse<PlexLibraryContent>> {
+    try {
+      const response = await fetch(`${this.getBaseUrl()}/api/plex/library/${libraryId}/content/${page}`, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        return { success: false, error: `Failed to fetch library content: ${response.statusText}` };
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to fetch library content' 
+      };
+    }
+  }
+
+  async getAllMedia(): Promise<ApiResponse<MediaItem[]>> {
+    try {
+      // First get all libraries
+      const librariesResult = await this.getPlexLibraries();
+      if (!librariesResult.success || !librariesResult.data) {
+        return { success: false, error: librariesResult.error || 'Failed to fetch libraries' };
+      }
+
+      const allMedia: MediaItem[] = [];
+      
+      // Fetch content from each active library
+      for (const library of librariesResult.data) {
+        if (!library.isActive) continue;
+        
+        let page = 0;
+        let hasMore = true;
+        
+        while (hasMore) {
+          const contentResult = await this.getLibraryContent(library.id, page);
+          
+          if (!contentResult.success || !contentResult.data) {
+            console.warn(`Failed to fetch page ${page} from library ${library.name}`);
+            break;
+          }
+          
+          const { items, totalSize } = contentResult.data;
+          
+          // Map Plex items to our MediaItem format
+          const mappedItems = items.map((item: PlexMediaItem) => this.mapPlexItemToMediaItem(item));
+          allMedia.push(...mappedItems);
+          
+          // Check if there are more pages (assuming 100 items per page)
+          const itemsPerPage = 100;
+          hasMore = (page + 1) * itemsPerPage < totalSize;
+          page++;
+        }
+      }
+
+      return { success: true, data: allMedia };
     } catch (error) {
       return { 
         success: false, 
@@ -98,9 +150,33 @@ class MaintainerrApi {
     }
   }
 
+  private mapPlexItemToMediaItem(item: PlexMediaItem): MediaItem {
+    return {
+      id: parseInt(item.ratingKey, 10),
+      plexId: item.ratingKey,
+      title: item.title,
+      year: item.year || 0,
+      type: item.type === 'show' ? 'tv' : 'movie',
+      overview: item.summary || '',
+      posterPath: item.thumb || null,
+      backdropPath: item.art || null,
+      genres: item.Genre?.map(g => g.tag) || [],
+      runtime: item.duration ? Math.floor(item.duration / 60000) : undefined, // ms to minutes
+      seasons: item.childCount,
+      addedAt: new Date(item.addedAt * 1000).toISOString(),
+      lastWatchedAt: item.lastViewedAt ? new Date(item.lastViewedAt * 1000).toISOString() : undefined,
+      collections: [],
+      isExcluded: false,
+    };
+  }
+
+  // Legacy method - now calls getAllMedia
+  async getMedia(): Promise<ApiResponse<MediaItem[]>> {
+    return this.getAllMedia();
+  }
+
   async getCollections(): Promise<ApiResponse<Collection[]>> {
     try {
-      // Placeholder: Adjust endpoint based on actual Maintainerr API
       const response = await fetch(`${this.getBaseUrl()}/api/collections`, {
         method: 'GET',
         headers: this.getHeaders(),
@@ -110,8 +186,18 @@ class MaintainerrApi {
         return { success: false, error: `Failed to fetch collections: ${response.statusText}` };
       }
 
-      const data = await response.json();
-      return { success: true, data: data.items || data || [] };
+      const data: MaintainerrCollection[] = await response.json();
+      
+      // Map to our Collection format
+      const collections: Collection[] = (data || []).map(col => ({
+        id: col.id,
+        name: col.title,
+        description: col.description,
+        mediaCount: col.media?.length || 0,
+        isActive: col.isActive,
+      }));
+      
+      return { success: true, data: collections };
     } catch (error) {
       return { 
         success: false, 
@@ -120,13 +206,16 @@ class MaintainerrApi {
     }
   }
 
-  async addToCollection(mediaId: number, collectionId: number): Promise<ApiResponse<boolean>> {
+  async addToCollection(plexId: string, collectionId: number): Promise<ApiResponse<boolean>> {
     try {
-      // Placeholder: Adjust endpoint based on actual Maintainerr API
-      const response = await fetch(`${this.getBaseUrl()}/api/collections/${collectionId}/media`, {
+      // Correct endpoint: POST /api/collections/media/add
+      const response = await fetch(`${this.getBaseUrl()}/api/collections/media/add`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({ mediaId }),
+        body: JSON.stringify({ 
+          collectionId,
+          plexId: parseInt(plexId, 10)
+        }),
       });
 
       if (!response.ok) {
@@ -142,12 +231,16 @@ class MaintainerrApi {
     }
   }
 
-  async excludeMedia(mediaId: number): Promise<ApiResponse<boolean>> {
+  async excludeMedia(plexId: string, ruleId?: number): Promise<ApiResponse<boolean>> {
     try {
-      // Placeholder: Adjust endpoint based on actual Maintainerr API
-      const response = await fetch(`${this.getBaseUrl()}/api/media/${mediaId}/exclude`, {
+      // Correct endpoint: POST /api/rules/exclusion
+      const response = await fetch(`${this.getBaseUrl()}/api/rules/exclusion`, {
         method: 'POST',
         headers: this.getHeaders(),
+        body: JSON.stringify({ 
+          plexId: parseInt(plexId, 10),
+          ruleId: ruleId || null
+        }),
       });
 
       if (!response.ok) {
@@ -161,6 +254,15 @@ class MaintainerrApi {
         error: error instanceof Error ? error.message : 'Failed to exclude media' 
       };
     }
+  }
+
+  // Get poster URL from Plex through Maintainerr
+  getPosterUrl(posterPath: string | null): string {
+    if (!posterPath) return '/placeholder.svg';
+    if (!this.config) return '/placeholder.svg';
+    
+    // Construct the Plex image URL through Maintainerr proxy
+    return `${this.getBaseUrl()}/api/plex/thumb?url=${encodeURIComponent(posterPath)}`;
   }
 }
 
