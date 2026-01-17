@@ -1,4 +1,4 @@
-import { ArrowLeft, FolderPlus, Eye, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, FolderPlus, Eye, Check, Loader2, AlertTriangle } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -10,8 +10,20 @@ export const CollectionSetupScreen = () => {
     setSelectedCollectionId, 
     goToSwipe,
     goBackToLibrary,
-    isLoading 
+    isLoading,
+    mediaItems,
+    selectedLibraryId,
   } = useApp();
+
+  // Get the librarySectionId from the current media or selected library
+  const currentLibrarySectionId = mediaItems[0]?.librarySectionId ?? (selectedLibraryId ? parseInt(selectedLibraryId, 10) : undefined);
+  
+  // Filter collections to only show those compatible with the current library
+  const compatibleCollections = collections.filter(
+    c => !c.librarySectionId || !currentLibrarySectionId || c.librarySectionId === currentLibrarySectionId
+  );
+  
+  const incompatibleCount = collections.length - compatibleCollections.length;
 
   const handleSelectCollection = (collectionId: number | null) => {
     setSelectedCollectionId(collectionId);
@@ -76,12 +88,12 @@ export const CollectionSetupScreen = () => {
             </div>
 
             {/* Collections */}
-            {collections.length === 0 ? (
+            {compatibleCollections.length === 0 ? (
               <p className="text-center text-muted-foreground py-4">
-                No collections available
+                No compatible collections for this library
               </p>
             ) : (
-              collections.map((collection) => (
+              compatibleCollections.map((collection) => (
                 <Card
                   key={collection.id}
                   className={`p-4 cursor-pointer transition-colors border-2 ${
@@ -111,6 +123,14 @@ export const CollectionSetupScreen = () => {
                   </div>
                 </Card>
               ))
+            )}
+            
+            {/* Incompatible collections notice */}
+            {incompatibleCount > 0 && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <span>{incompatibleCount} collection{incompatibleCount > 1 ? 's' : ''} hidden (different library)</span>
+              </div>
             )}
           </div>
         )}

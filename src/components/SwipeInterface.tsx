@@ -39,6 +39,16 @@ export function SwipeInterface() {
 
     try {
       if (direction === 'right' && selectedCollectionId) {
+        // Validate library match before adding
+        const collection = collections.find(c => c.id === selectedCollectionId);
+        if (collection?.librarySectionId && currentMedia.librarySectionId) {
+          if (collection.librarySectionId !== currentMedia.librarySectionId) {
+            toast.error('Library mismatch — cannot add to this collection');
+            setIsProcessing(false);
+            return;
+          }
+        }
+        
         // Add to collection
         console.log('[SwipeInterface] Adding to collection:', selectedCollectionId, 'PlexId:', currentMedia.plexId, 'TmdbId:', currentMedia.tmdbId);
         const result = await maintainerrApi.addToCollection(currentMedia.plexId, selectedCollectionId, currentMedia.tmdbId);
