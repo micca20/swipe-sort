@@ -106,13 +106,12 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
     }
   };
 
-  const posterUrl = getPosterUrl(item.posterPath);
   const [posterSrc, setPosterSrc] = useState<string | null>(null);
   const [posterLoading, setPosterLoading] = useState(true);
   const [posterError, setPosterError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
-  // Posters are behind the API key header; fetch as a blob and use an object URL.
+  // Fetch poster - try TMDB CDN first (no auth), fallback to Plex proxy with auth
   useEffect(() => {
     let cancelled = false;
     let objectUrl: string | null = null;
@@ -121,6 +120,25 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
       setPosterLoading(true);
       setPosterError(false);
 
+      // Try TMDB CDN first if we have tmdbId and posterPath
+      if (item.tmdbId && item.posterPath) {
+        const tmdbUrl = `https://image.tmdb.org/t/p/w500${item.posterPath}`;
+        try {
+          const res = await fetch(tmdbUrl);
+          if (res.ok) {
+            if (!cancelled) {
+              setPosterSrc(tmdbUrl);
+              setPosterLoading(false);
+            }
+            return;
+          }
+        } catch {
+          // TMDB failed, try Plex proxy
+        }
+      }
+
+      // Fallback to Plex proxy through Maintainerr (requires API key)
+      const posterUrl = getPosterUrl(item.posterPath);
       if (!config?.apiKey || !posterUrl || posterUrl === '/placeholder.svg') {
         setPosterSrc('/placeholder.svg');
         setPosterLoading(false);
@@ -129,12 +147,16 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
 
       try {
         const res = await fetch(posterUrl, {
-          headers: {
-            'X-Api-Key': config.apiKey,
-          },
+          headers: { 'X-Api-Key': config.apiKey },
         });
 
         if (!res.ok) throw new Error(`Poster fetch failed: ${res.status}`);
+
+        const contentType = res.headers.get('content-type');
+        // Check if response is actually an image
+        if (!contentType?.startsWith('image/')) {
+          throw new Error('Response is not an image');
+        }
 
         const blob = await res.blob();
         objectUrl = URL.createObjectURL(blob);
@@ -156,7 +178,7 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [posterUrl, config?.apiKey, retryCount]);
+  }, [item.posterPath, item.tmdbId, config?.apiKey, getPosterUrl, retryCount]);
 
   const handleRetry = (e: React.MouseEvent) => {
     e.stopPropagation();

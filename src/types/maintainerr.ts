@@ -26,6 +26,7 @@ export interface PlexMediaItem {
   duration?: number;
   childCount?: number; // seasons for TV
   Genre?: Array<{ tag: string }>;
+  Guid?: Array<{ id: string }>; // External IDs like tmdb://12345
 }
 
 // Plex library content response
@@ -57,6 +58,7 @@ export interface MediaItem {
   overview: string;
   posterPath: string | null;
   backdropPath: string | null;
+  tmdbId?: number; // TMDB ID for fetching posters
   genres: string[];
   runtime?: number; // minutes for movies
   seasons?: number; // for TV shows
