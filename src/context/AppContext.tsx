@@ -80,17 +80,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       maintainerrApi.setConfig(storedConfig);
       setIsConnected(true);
       
+      // Validate stored library - if it's falsy, "undefined", or "null", reset to library selection
+      const isValidLibrary = storedLibrary && storedLibrary !== 'undefined' && storedLibrary !== 'null';
+      
       // Restore step - but validate it
-      if (storedStep === 'swipe' && !storedLibrary) {
-        setAppStep('library');
+      if (storedStep === 'swipe' || storedStep === 'collection') {
+        if (isValidLibrary) {
+          setSelectedLibraryId(storedLibrary);
+          setAppStep(storedStep);
+        } else {
+          // Invalid library stored, go back to library selection
+          console.warn('Invalid stored library ID, resetting to library selection');
+          setAppStep('library');
+          storage.saveAppStep('library');
+          storage.saveSelectedLibrary(null);
+        }
       } else if (storedStep !== 'setup') {
         setAppStep(storedStep);
       } else {
         setAppStep('library');
-      }
-      
-      if (storedLibrary) {
-        setSelectedLibraryId(storedLibrary);
       }
     }
     
@@ -137,6 +145,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const fetchLibraryMedia = async (libraryId: string) => {
+    // Guard against invalid library IDs
+    if (!libraryId || libraryId === 'undefined' || libraryId === 'null') {
+      console.error('Invalid library ID:', libraryId);
+      toast.error('Invalid library selected. Please select a library.');
+      setAppStep('library');
+      storage.saveAppStep('library');
+      storage.saveSelectedLibrary(null);
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const response = await maintainerrApi.getLibraryMedia(libraryId);
@@ -240,6 +258,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const selectLibrary = useCallback(async (libraryId: string) => {
+    if (!libraryId) {
+      toast.error('No library selected');
+      return;
+    }
+    
     setSelectedLibraryId(libraryId);
     setMediaItems([]); // Clear old media
     setCurrentIndex(0);

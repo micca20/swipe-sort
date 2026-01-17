@@ -157,6 +157,11 @@ class MaintainerrApi {
   }
 
   async getLibraryMedia(libraryId: string): Promise<ApiResponse<MediaItem[]>> {
+    // Guard against invalid library IDs
+    if (!libraryId || libraryId === 'undefined' || libraryId === 'null') {
+      return { success: false, error: 'Invalid library ID provided' };
+    }
+    
     try {
       const allMedia: MediaItem[] = [];
       let page = 0;
