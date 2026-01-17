@@ -18,7 +18,7 @@ const SWIPE_THRESHOLD = 100;
 const SWIPE_VELOCITY = 0.5;
 
 export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
-  const { getPosterUrl, config } = useApp();
+  const { config } = useApp();
   const [isDragging, setIsDragging] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const hasSwipedRef = useRef(false);
@@ -111,7 +111,7 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
   const [posterError, setPosterError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
-  // Fetch poster - try TMDB CDN first (no auth), fallback to Plex proxy with auth
+  // Fetch poster via Plex proxy through Maintainerr
   useEffect(() => {
     let cancelled = false;
     let objectUrl: string | null = null;
@@ -120,51 +120,40 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
       setPosterLoading(true);
       setPosterError(false);
 
-      // Try TMDB CDN first if we have tmdbId and posterPath
-      if (item.tmdbId && item.posterPath) {
-        const tmdbUrl = `https://image.tmdb.org/t/p/w500${item.posterPath}`;
-        try {
-          const res = await fetch(tmdbUrl);
-          if (res.ok) {
-            if (!cancelled) {
-              setPosterSrc(tmdbUrl);
-              setPosterLoading(false);
-            }
-            return;
-          }
-        } catch {
-          // TMDB failed, try Plex proxy
-        }
-      }
-
-      // Fallback to Plex proxy through Maintainerr (requires API key)
-      const posterUrl = getPosterUrl(item.posterPath);
-      if (!config?.apiKey || !posterUrl || posterUrl === '/placeholder.svg') {
+      if (!config?.apiKey || !item.posterPath) {
         setPosterSrc('/placeholder.svg');
         setPosterLoading(false);
         return;
       }
 
+      // Build the Plex proxy URL through Maintainerr
+      const proxyUrl = `${config.baseUrl.replace(/\/$/, '')}/api/plex/thumb?url=${encodeURIComponent(item.posterPath)}`;
+
       try {
-        const res = await fetch(posterUrl, {
+        const res = await fetch(proxyUrl, {
           headers: { 'X-Api-Key': config.apiKey },
         });
 
-        if (!res.ok) throw new Error(`Poster fetch failed: ${res.status}`);
+        if (!res.ok) {
+          throw new Error(`Proxy fetch failed: ${res.status}`);
+        }
 
-        const contentType = res.headers.get('content-type');
-        // Check if response is actually an image
-        if (!contentType?.startsWith('image/')) {
-          throw new Error('Response is not an image');
+        // Check if we actually got image data (not HTML error page)
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.startsWith('image/')) {
+          console.warn('[SwipeCard] Proxy returned non-image content:', contentType);
+          throw new Error('Not an image');
         }
 
         const blob = await res.blob();
         objectUrl = URL.createObjectURL(blob);
+
         if (!cancelled) {
           setPosterSrc(objectUrl);
           setPosterLoading(false);
         }
-      } catch {
+      } catch (error) {
+        console.error('[SwipeCard] Poster load error:', error);
         if (!cancelled) {
           setPosterError(true);
           setPosterLoading(false);
@@ -178,7 +167,7 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [item.posterPath, item.tmdbId, config?.apiKey, getPosterUrl, retryCount]);
+  }, [item.posterPath, config?.apiKey, config?.baseUrl, retryCount]);
 
   const handleRetry = (e: React.MouseEvent) => {
     e.stopPropagation();
