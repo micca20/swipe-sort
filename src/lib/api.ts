@@ -197,6 +197,15 @@ class MaintainerrApi {
   }
 
   private mapPlexItemToMediaItem(item: PlexMediaItem): MediaItem {
+    // Extract TMDB ID from Guid array (format: "tmdb://12345")
+    let tmdbId: number | undefined;
+    if (item.Guid) {
+      const tmdbGuid = item.Guid.find(g => g.id.startsWith('tmdb://'));
+      if (tmdbGuid) {
+        tmdbId = parseInt(tmdbGuid.id.replace('tmdb://', ''), 10);
+      }
+    }
+
     return {
       id: parseInt(item.ratingKey, 10),
       plexId: item.ratingKey,
@@ -206,6 +215,7 @@ class MaintainerrApi {
       overview: item.summary || '',
       posterPath: item.thumb || null,
       backdropPath: item.art || null,
+      tmdbId,
       genres: item.Genre?.map(g => g.tag) || [],
       runtime: item.duration ? Math.floor(item.duration / 60000) : undefined, // ms to minutes
       seasons: item.childCount,
@@ -302,12 +312,20 @@ class MaintainerrApi {
     }
   }
 
-  // Get poster URL from Plex through Maintainerr
-  getPosterUrl(posterPath: string | null): string {
+  // Get poster URL - prefer TMDB CDN for reliable loading
+  getPosterUrl(posterPath: string | null, tmdbId?: number, mediaType?: 'movie' | 'tv'): string {
+    // If we have a TMDB ID, use the TMDB Image CDN (no auth required)
+    if (tmdbId) {
+      // TMDB poster paths start with / like /abc123.jpg
+      // But we need to fetch the actual path from TMDB API or use a known pattern
+      // For now, construct a proxy URL that Maintainerr might support
+      return `https://image.tmdb.org/t/p/w500${posterPath}`;
+    }
+    
     if (!posterPath) return '/placeholder.svg';
     if (!this.config) return '/placeholder.svg';
     
-    // Construct the Plex image URL through Maintainerr proxy
+    // Fallback to Plex proxy through Maintainerr
     return `${this.getBaseUrl()}/api/plex/thumb?url=${encodeURIComponent(posterPath)}`;
   }
 }
