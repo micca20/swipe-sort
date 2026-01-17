@@ -50,8 +50,8 @@ export function SwipeInterface() {
         }
         
         // Add to collection
-        console.log('[SwipeInterface] Adding to collection:', selectedCollectionId, 'PlexId:', currentMedia.plexId, 'TmdbId:', currentMedia.tmdbId);
-        const result = await maintainerrApi.addToCollection(currentMedia.plexId, selectedCollectionId, currentMedia.tmdbId);
+        console.log('[SwipeInterface] Adding to collection:', selectedCollectionId, 'PlexId:', currentMedia.plexId, 'Type:', currentMedia.type);
+        const result = await maintainerrApi.addToCollection(currentMedia.plexId, selectedCollectionId, currentMedia.type);
         console.log('[SwipeInterface] Add result:', result);
         if (result.success) {
           toast.success(`Added to ${selectedCollection?.name}`);
