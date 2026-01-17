@@ -139,13 +139,13 @@ export function SwipeInterface() {
       </div>
 
       {/* Card Stack */}
-      <div className="flex-1 relative p-4 overflow-hidden">
+      <div className="flex-1 relative p-4 overflow-hidden flex items-center justify-center">
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="relative w-full h-full max-w-sm mx-auto">
+          <div className="relative w-full max-w-sm mx-auto h-[min(70vh,36rem)]">
             {/* Background card (next) */}
             {nextMedia && (
               <SwipeCard
