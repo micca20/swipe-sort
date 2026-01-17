@@ -150,6 +150,41 @@ class MaintainerrApi {
     }
   }
 
+  async getLibraryMedia(libraryId: string): Promise<ApiResponse<MediaItem[]>> {
+    try {
+      const allMedia: MediaItem[] = [];
+      let page = 0;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const contentResult = await this.getLibraryContent(libraryId, page);
+        
+        if (!contentResult.success || !contentResult.data) {
+          if (page === 0) {
+            return { success: false, error: contentResult.error || 'Failed to fetch library content' };
+          }
+          break;
+        }
+        
+        const { items, totalSize } = contentResult.data;
+        const mappedItems = items.map((item: PlexMediaItem) => this.mapPlexItemToMediaItem(item));
+        allMedia.push(...mappedItems);
+        
+        // Check if there are more pages
+        const itemsPerPage = 100;
+        hasMore = (page + 1) * itemsPerPage < totalSize;
+        page++;
+      }
+
+      return { success: true, data: allMedia };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to fetch library media' 
+      };
+    }
+  }
+
   private mapPlexItemToMediaItem(item: PlexMediaItem): MediaItem {
     return {
       id: parseInt(item.ratingKey, 10),

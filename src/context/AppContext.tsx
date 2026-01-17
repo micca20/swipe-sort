@@ -4,6 +4,8 @@ import { maintainerrApi } from '@/lib/api';
 import * as storage from '@/lib/storage';
 import { toast } from 'sonner';
 
+type AppStep = 'setup' | 'library' | 'collection' | 'swipe';
+
 interface AppContextType {
   // Connection state
   config: MaintainerrConfig | null;
@@ -12,10 +14,14 @@ interface AppContextType {
   loadingProgress: { current: number; total: number } | null;
   error: string | null;
   
+  // App step
+  appStep: AppStep;
+  
   // Data
   mediaItems: MediaItem[];
   collections: Collection[];
   libraries: PlexLibrary[];
+  selectedLibraryId: string | null;
   currentIndex: number;
   selectedCollectionId: number | null;
   filters: FilterOptions;
@@ -23,7 +29,10 @@ interface AppContextType {
   // Actions
   connect: (config: MaintainerrConfig) => Promise<boolean>;
   disconnect: () => void;
-  setSelectedCollection: (id: number | null) => void;
+  selectLibrary: (libraryId: string) => Promise<void>;
+  goBackToLibrary: () => void;
+  goToSwipe: () => void;
+  setSelectedCollectionId: (id: number | null) => void;
   setFilters: (filters: FilterOptions) => void;
   advanceToNext: () => void;
   resetProgress: () => void;
@@ -46,9 +55,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loadingProgress, setLoadingProgress] = useState<{ current: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   
+  // App step
+  const [appStep, setAppStep] = useState<AppStep>('setup');
+  
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [libraries, setLibraries] = useState<PlexLibrary[]>([]);
+  const [selectedLibraryId, setSelectedLibraryId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedCollectionId, setSelectedCollectionIdState] = useState<number | null>(null);
   const [filters, setFiltersState] = useState<FilterOptions>({ mediaType: 'all', sortBy: 'oldest' });
@@ -59,11 +72,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const storedIndex = storage.getCurrentIndex();
     const storedCollection = storage.getSelectedCollection();
     const storedFilters = storage.getFilters();
+    const storedStep = storage.getAppStep();
+    const storedLibrary = storage.getSelectedLibrary();
 
     if (storedConfig) {
       setConfig(storedConfig);
       maintainerrApi.setConfig(storedConfig);
       setIsConnected(true);
+      
+      // Restore step - but validate it
+      if (storedStep === 'swipe' && !storedLibrary) {
+        setAppStep('library');
+      } else if (storedStep !== 'setup') {
+        setAppStep(storedStep);
+      } else {
+        setAppStep('library');
+      }
+      
+      if (storedLibrary) {
+        setSelectedLibraryId(storedLibrary);
+      }
     }
     
     setCurrentIndex(storedIndex);
@@ -71,6 +99,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setFiltersState(storedFilters);
     setIsLoading(false);
   }, []);
+
+  // Fetch libraries when we enter library step
+  useEffect(() => {
+    if (isConnected && appStep === 'library' && libraries.length === 0 && !isLoading) {
+      fetchLibraries();
+    }
+  }, [isConnected, appStep, libraries.length, isLoading]);
+
+  // Fetch media when library is selected and we enter collection step
+  useEffect(() => {
+    if (selectedLibraryId && appStep === 'collection' && mediaItems.length === 0 && !isLoading) {
+      fetchLibraryMedia(selectedLibraryId);
+    }
+  }, [selectedLibraryId, appStep, mediaItems.length, isLoading]);
+
+  const fetchLibraries = async () => {
+    setIsLoading(true);
+    try {
+      const librariesResponse = await maintainerrApi.getPlexLibraries();
+      if (librariesResponse.success && librariesResponse.data) {
+        setLibraries(librariesResponse.data);
+      } else {
+        toast.error('Failed to load libraries');
+      }
+
+      // Also fetch collections
+      const collectionsResponse = await maintainerrApi.getCollections();
+      if (collectionsResponse.success && collectionsResponse.data) {
+        setCollections(collectionsResponse.data);
+      }
+    } catch (err) {
+      toast.error('Failed to fetch libraries');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchLibraryMedia = async (libraryId: string) => {
+    setIsLoading(true);
+    try {
+      const response = await maintainerrApi.getLibraryMedia(libraryId);
+      if (response.success && response.data) {
+        setMediaItems(response.data);
+        setCurrentIndex(0);
+        toast.success(`Loaded ${response.data.length} media items`);
+      } else {
+        toast.error(response.error || 'Failed to load media');
+      }
+    } catch (err) {
+      toast.error('Failed to fetch media');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Filter and sort media
   const filteredMedia = useCallback(() => {
@@ -121,7 +203,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setConfig(newConfig);
     setIsConnected(true);
     
-    // Fetch libraries first
+    // Fetch libraries
     toast.info('Fetching Plex libraries...');
     const librariesResult = await maintainerrApi.getPlexLibraries();
     
@@ -135,18 +217,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCollections(collectionsResult.data);
     }
     
-    // Fetch all media from libraries
-    toast.info('Loading media from Plex libraries...');
-    const mediaResult = await maintainerrApi.getAllMedia();
+    // Go to library selection step
+    setAppStep('library');
+    storage.saveAppStep('library');
     
-    if (mediaResult.success && mediaResult.data) {
-      setMediaItems(mediaResult.data);
-      toast.success(`Loaded ${mediaResult.data.length} media items`);
-    } else {
-      toast.error(mediaResult.error || 'Failed to load media');
-    }
-    
-    setLoadingProgress(null);
     setIsLoading(false);
     return true;
   }, []);
@@ -157,12 +231,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setIsConnected(false);
     setMediaItems([]);
     setCollections([]);
+    setLibraries([]);
+    setSelectedLibraryId(null);
     setCurrentIndex(0);
     setSelectedCollectionIdState(null);
     setFiltersState({ mediaType: 'all', sortBy: 'oldest' });
+    setAppStep('setup');
   }, []);
 
-  const setSelectedCollection = useCallback((id: number | null) => {
+  const selectLibrary = useCallback(async (libraryId: string) => {
+    setSelectedLibraryId(libraryId);
+    setMediaItems([]); // Clear old media
+    setCurrentIndex(0);
+    storage.saveSelectedLibrary(libraryId);
+    storage.saveAppStep('collection');
+    setAppStep('collection');
+    
+    // Fetch media for this library
+    await fetchLibraryMedia(libraryId);
+  }, []);
+
+  const goBackToLibrary = useCallback(() => {
+    setSelectedLibraryId(null);
+    setMediaItems([]);
+    setCurrentIndex(0);
+    storage.saveSelectedLibrary(null);
+    storage.saveAppStep('library');
+    setAppStep('library');
+  }, []);
+
+  const goToSwipe = useCallback(() => {
+    storage.saveAppStep('swipe');
+    setAppStep('swipe');
+  }, []);
+
+  const setSelectedCollectionId = useCallback((id: number | null) => {
     setSelectedCollectionIdState(id);
     storage.saveSelectedCollection(id);
   }, []);
@@ -187,13 +290,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshData = useCallback(async () => {
-    if (!isConnected) return;
+    if (!isConnected || !selectedLibraryId) return;
     
     setIsLoading(true);
     toast.info('Refreshing data...');
     
     const [mediaResult, collectionsResult] = await Promise.all([
-      maintainerrApi.getAllMedia(),
+      maintainerrApi.getLibraryMedia(selectedLibraryId),
       maintainerrApi.getCollections(),
     ]);
     
@@ -207,7 +310,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     
     setIsLoading(false);
-  }, [isConnected]);
+  }, [isConnected, selectedLibraryId]);
 
   const getPosterUrl = useCallback((posterPath: string | null) => {
     return maintainerrApi.getPosterUrl(posterPath);
@@ -226,15 +329,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isLoading,
         loadingProgress,
         error,
+        appStep,
         mediaItems,
         collections,
         libraries,
+        selectedLibraryId,
         currentIndex,
         selectedCollectionId,
         filters,
         connect,
         disconnect,
-        setSelectedCollection,
+        selectLibrary,
+        goBackToLibrary,
+        goToSwipe,
+        setSelectedCollectionId,
         setFilters,
         advanceToNext,
         resetProgress: resetProgressAction,

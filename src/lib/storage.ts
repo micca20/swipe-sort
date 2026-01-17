@@ -2,12 +2,16 @@
 
 import type { MaintainerrConfig, FilterOptions, SwipeAction } from '@/types/maintainerr';
 
+type AppStep = 'setup' | 'library' | 'collection' | 'swipe';
+
 const STORAGE_KEYS = {
   CONFIG: 'maintainarr_config',
   CURRENT_INDEX: 'maintainarr_current_index',
   SELECTED_COLLECTION: 'maintainarr_selected_collection',
   FILTERS: 'maintainarr_filters',
   SWIPE_HISTORY: 'maintainarr_swipe_history',
+  APP_STEP: 'maintainarr_app_step',
+  SELECTED_LIBRARY: 'maintainarr_selected_library',
 } as const;
 
 // Config
@@ -81,6 +85,29 @@ export function addToSwipeHistory(action: SwipeAction): void {
     history.shift();
   }
   saveSwipeHistory(history);
+}
+
+// App step
+export function saveAppStep(step: AppStep): void {
+  localStorage.setItem(STORAGE_KEYS.APP_STEP, step);
+}
+
+export function getAppStep(): AppStep {
+  const stored = localStorage.getItem(STORAGE_KEYS.APP_STEP);
+  return (stored as AppStep) || 'setup';
+}
+
+// Selected library
+export function saveSelectedLibrary(libraryId: string | null): void {
+  if (libraryId === null) {
+    localStorage.removeItem(STORAGE_KEYS.SELECTED_LIBRARY);
+  } else {
+    localStorage.setItem(STORAGE_KEYS.SELECTED_LIBRARY, libraryId);
+  }
+}
+
+export function getSelectedLibrary(): string | null {
+  return localStorage.getItem(STORAGE_KEYS.SELECTED_LIBRARY);
 }
 
 // Clear all app data
