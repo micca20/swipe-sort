@@ -73,7 +73,15 @@ class MaintainerrApi {
       }
 
       const data = await response.json();
-      return { success: true, data: data || [] };
+      
+      // Map raw API response (key, title) to our PlexLibrary format (id, name)
+      const libraries: PlexLibrary[] = (data || []).map((lib: { key: string; title: string; type: string }) => ({
+        id: lib.key,
+        name: lib.title,
+        type: lib.type as 'movie' | 'show',
+      }));
+      
+      return { success: true, data: libraries };
     } catch (error) {
       return { 
         success: false, 
@@ -113,10 +121,8 @@ class MaintainerrApi {
 
       const allMedia: MediaItem[] = [];
       
-      // Fetch content from each active library
+      // Fetch content from each library
       for (const library of librariesResult.data) {
-        if (!library.isActive) continue;
-        
         let page = 0;
         let hasMore = true;
         

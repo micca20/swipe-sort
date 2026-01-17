@@ -5,12 +5,11 @@ export interface MaintainerrConfig {
   apiKey: string;
 }
 
-// Plex Library from Maintainerr
+// Plex Library normalized for app use (mapped from API response)
 export interface PlexLibrary {
-  id: string;
-  name: string;
+  id: string;      // mapped from 'key'
+  name: string;    // mapped from 'title'
   type: 'movie' | 'show';
-  isActive: boolean;
 }
 
 // Raw Plex media item from API
