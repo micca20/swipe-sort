@@ -45,6 +45,7 @@ export interface MaintainerrCollection {
   visibleOnHome: boolean;
   deleteAfterDays?: number;
   manualCollection: boolean;
+  librarySectionId?: number;
   media?: Array<{ id: number; plexId: number }>;
 }
 
@@ -66,6 +67,7 @@ export interface MediaItem {
   lastWatchedAt?: string;
   collections: Collection[];
   isExcluded: boolean;
+  librarySectionId?: number;
 }
 
 export interface Collection {
@@ -74,6 +76,7 @@ export interface Collection {
   description?: string;
   mediaCount: number;
   isActive: boolean;
+  librarySectionId?: number;
 }
 
 export interface Rule {

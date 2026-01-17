@@ -178,7 +178,7 @@ class MaintainerrApi {
         }
         
         const { items, totalSize } = contentResult.data;
-        const mappedItems = items.map((item: PlexMediaItem) => this.mapPlexItemToMediaItem(item));
+        const mappedItems = items.map((item: PlexMediaItem) => this.mapPlexItemToMediaItem(item, parseInt(libraryId, 10)));
         allMedia.push(...mappedItems);
         
         // Check if there are more pages
@@ -196,7 +196,7 @@ class MaintainerrApi {
     }
   }
 
-  private mapPlexItemToMediaItem(item: PlexMediaItem): MediaItem {
+  private mapPlexItemToMediaItem(item: PlexMediaItem, librarySectionId?: number): MediaItem {
     // Extract TMDB ID from Guid array (format: "tmdb://12345")
     let tmdbId: number | undefined;
     if (item.Guid) {
@@ -223,6 +223,7 @@ class MaintainerrApi {
       lastWatchedAt: item.lastViewedAt ? new Date(item.lastViewedAt * 1000).toISOString() : undefined,
       collections: [],
       isExcluded: false,
+      librarySectionId,
     };
   }
 
@@ -251,6 +252,7 @@ class MaintainerrApi {
         description: col.description,
         mediaCount: col.media?.length || 0,
         isActive: col.isActive,
+        librarySectionId: col.librarySectionId,
       }));
       
       return { success: true, data: collections };
