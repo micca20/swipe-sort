@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSpring, animated, to } from 'react-spring';
 import { useDrag } from '@use-gesture/react';
 import type { MediaItem, SwipeDirection } from '@/types/maintainerr';
@@ -17,7 +17,7 @@ const SWIPE_THRESHOLD = 100;
 const SWIPE_VELOCITY = 0.5;
 
 export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
-  const { getPosterUrl } = useApp();
+  const { getPosterUrl, config } = useApp();
   const [isDragging, setIsDragging] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const hasSwipedRef = useRef(false);
@@ -31,7 +31,7 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
   }));
 
   const bind = useDrag(
-    ({ active, movement: [mx, my], velocity: [vx, vy], direction: [dx, dy], cancel }) => {
+    ({ active, movement: [mx, my], velocity: [vx, vy], direction: [dx, dy] }) => {
       if (!isTop || hasSwipedRef.current) return;
 
       setIsDragging(active);
@@ -59,11 +59,11 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
           direction = 'down';
         }
         // Swipe right (add to collection)
-        else if (mx > SWIPE_THRESHOLD || velocityX > SWIPE_VELOCITY && dx > 0) {
+        else if (mx > SWIPE_THRESHOLD || (velocityX > SWIPE_VELOCITY && dx > 0)) {
           if (mx > 0) direction = 'right';
         }
         // Swipe left (skip)
-        else if (mx < -SWIPE_THRESHOLD || velocityX > SWIPE_VELOCITY && dx < 0) {
+        else if (mx < -SWIPE_THRESHOLD || (velocityX > SWIPE_VELOCITY && dx < 0)) {
           if (mx < 0) direction = 'left';
         }
 
@@ -72,7 +72,7 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
           // Animate off screen
           const exitX = direction === 'right' ? 500 : direction === 'left' ? -500 : 0;
           const exitY = direction === 'down' ? 500 : 0;
-          
+
           api.start({
             x: exitX,
             y: exitY,
@@ -105,14 +105,44 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
     }
   };
 
-  // Determine swipe indicator
-  const xVal = x.get();
-  const yVal = y.get();
-  const showRight = xVal > 30;
-  const showLeft = xVal < -30;
-  const showDown = yVal > 30;
-
   const posterUrl = getPosterUrl(item.posterPath);
+  const [posterSrc, setPosterSrc] = useState(posterUrl);
+
+  // Posters are behind the API key header; fetch as a blob and use an object URL.
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    const load = async () => {
+      setPosterSrc(posterUrl);
+
+      if (!config?.apiKey) return;
+      if (!posterUrl || posterUrl === '/placeholder.svg') return;
+
+      try {
+        const res = await fetch(posterUrl, {
+          headers: {
+            'X-Api-Key': config.apiKey,
+          },
+        });
+
+        if (!res.ok) throw new Error(`Poster fetch failed: ${res.status}`);
+
+        const blob = await res.blob();
+        objectUrl = URL.createObjectURL(blob);
+        if (!cancelled) setPosterSrc(objectUrl);
+      } catch {
+        if (!cancelled) setPosterSrc('/placeholder.svg');
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [posterUrl, config?.apiKey]);
 
   return (
     <animated.div
@@ -135,10 +165,11 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
         {/* Poster */}
         <div className="relative w-full h-[60%]">
           <img
-            src={posterUrl}
-            alt={item.title}
+            src={posterSrc}
+            alt={`Poster for ${item.title}`}
             className="w-full h-full object-cover"
             draggable={false}
+            loading="lazy"
           />
           
           {/* Swipe Indicators */}
