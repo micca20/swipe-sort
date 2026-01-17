@@ -5,8 +5,53 @@ export interface MaintainerrConfig {
   apiKey: string;
 }
 
+// Plex Library from Maintainerr
+export interface PlexLibrary {
+  id: string;
+  name: string;
+  type: 'movie' | 'show';
+  isActive: boolean;
+}
+
+// Raw Plex media item from API
+export interface PlexMediaItem {
+  ratingKey: string;
+  title: string;
+  year?: number;
+  type: 'movie' | 'show';
+  thumb?: string;
+  art?: string;
+  summary?: string;
+  addedAt: number;
+  lastViewedAt?: number;
+  duration?: number;
+  childCount?: number; // seasons for TV
+  Genre?: Array<{ tag: string }>;
+}
+
+// Plex library content response
+export interface PlexLibraryContent {
+  totalSize: number;
+  items: PlexMediaItem[];
+}
+
+// Maintainerr Collection from API
+export interface MaintainerrCollection {
+  id: number;
+  title: string;
+  description?: string;
+  isActive: boolean;
+  arrAction: number;
+  visibleOnHome: boolean;
+  deleteAfterDays?: number;
+  manualCollection: boolean;
+  media?: Array<{ id: number; plexId: number }>;
+}
+
+// App's normalized MediaItem
 export interface MediaItem {
   id: number;
+  plexId: string;
   title: string;
   year: number;
   type: 'movie' | 'tv';

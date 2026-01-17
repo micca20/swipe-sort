@@ -1,18 +1,21 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import type { MaintainerrConfig, MediaItem, Collection, FilterOptions } from '@/types/maintainerr';
+import type { MaintainerrConfig, MediaItem, Collection, FilterOptions, PlexLibrary } from '@/types/maintainerr';
 import { maintainerrApi } from '@/lib/api';
 import * as storage from '@/lib/storage';
+import { toast } from 'sonner';
 
 interface AppContextType {
   // Connection state
   config: MaintainerrConfig | null;
   isConnected: boolean;
   isLoading: boolean;
+  loadingProgress: { current: number; total: number } | null;
   error: string | null;
   
   // Data
   mediaItems: MediaItem[];
   collections: Collection[];
+  libraries: PlexLibrary[];
   currentIndex: number;
   selectedCollectionId: number | null;
   filters: FilterOptions;
@@ -25,6 +28,7 @@ interface AppContextType {
   advanceToNext: () => void;
   resetProgress: () => void;
   refreshData: () => Promise<void>;
+  getPosterUrl: (posterPath: string | null) => string;
   
   // Computed
   currentMedia: MediaItem | null;
@@ -39,10 +43,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<MaintainerrConfig | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState<{ current: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [libraries, setLibraries] = useState<PlexLibrary[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedCollectionId, setSelectedCollectionIdState] = useState<number | null>(null);
   const [filters, setFiltersState] = useState<FilterOptions>({ mediaType: 'all', sortBy: 'oldest' });
@@ -98,6 +104,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const connect = useCallback(async (newConfig: MaintainerrConfig): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
+    setLoadingProgress(null);
     
     maintainerrApi.setConfig(newConfig);
     
@@ -114,20 +121,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setConfig(newConfig);
     setIsConnected(true);
     
-    // Fetch initial data
-    const [mediaResult, collectionsResult] = await Promise.all([
-      maintainerrApi.getMedia(),
-      maintainerrApi.getCollections(),
-    ]);
+    // Fetch libraries first
+    toast.info('Fetching Plex libraries...');
+    const librariesResult = await maintainerrApi.getPlexLibraries();
     
-    if (mediaResult.success && mediaResult.data) {
-      setMediaItems(mediaResult.data);
+    if (librariesResult.success && librariesResult.data) {
+      setLibraries(librariesResult.data);
     }
     
+    // Fetch collections
+    const collectionsResult = await maintainerrApi.getCollections();
     if (collectionsResult.success && collectionsResult.data) {
       setCollections(collectionsResult.data);
     }
     
+    // Fetch all media from libraries
+    toast.info('Loading media from Plex libraries...');
+    const mediaResult = await maintainerrApi.getAllMedia();
+    
+    if (mediaResult.success && mediaResult.data) {
+      setMediaItems(mediaResult.data);
+      toast.success(`Loaded ${mediaResult.data.length} media items`);
+    } else {
+      toast.error(mediaResult.error || 'Failed to load media');
+    }
+    
+    setLoadingProgress(null);
     setIsLoading(false);
     return true;
   }, []);
@@ -171,14 +190,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!isConnected) return;
     
     setIsLoading(true);
+    toast.info('Refreshing data...');
     
     const [mediaResult, collectionsResult] = await Promise.all([
-      maintainerrApi.getMedia(),
+      maintainerrApi.getAllMedia(),
       maintainerrApi.getCollections(),
     ]);
     
     if (mediaResult.success && mediaResult.data) {
       setMediaItems(mediaResult.data);
+      toast.success(`Loaded ${mediaResult.data.length} media items`);
     }
     
     if (collectionsResult.success && collectionsResult.data) {
@@ -187,6 +208,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     setIsLoading(false);
   }, [isConnected]);
+
+  const getPosterUrl = useCallback((posterPath: string | null) => {
+    return maintainerrApi.getPosterUrl(posterPath);
+  }, []);
 
   const filtered = filteredMedia();
   const currentMedia = filtered[currentIndex] || null;
@@ -199,9 +224,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         config,
         isConnected,
         isLoading,
+        loadingProgress,
         error,
         mediaItems,
         collections,
+        libraries,
         currentIndex,
         selectedCollectionId,
         filters,
@@ -212,6 +239,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         advanceToNext,
         resetProgress: resetProgressAction,
         refreshData,
+        getPosterUrl,
         currentMedia,
         remainingCount,
         totalCount,

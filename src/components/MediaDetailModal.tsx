@@ -1,10 +1,10 @@
-import type { MediaItem } from '@/types/maintainerr';
+import type { MediaItem, SwipeDirection } from '@/types/maintainerr';
+import { useApp } from '@/context/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Film, Tv, Clock, Calendar, Check, X, Ban } from 'lucide-react';
-import type { SwipeDirection } from '@/types/maintainerr';
 
 interface MediaDetailModalProps {
   item: MediaItem | null;
@@ -21,11 +21,11 @@ export function MediaDetailModal({
   onAction,
   selectedCollectionName 
 }: MediaDetailModalProps) {
+  const { getPosterUrl } = useApp();
+  
   if (!item) return null;
 
-  const posterUrl = item.posterPath
-    ? `https://image.tmdb.org/t/p/w500${item.posterPath}`
-    : '/placeholder.svg';
+  const posterUrl = getPosterUrl(item.posterPath);
 
   const handleAction = (direction: SwipeDirection) => {
     onAction(direction);

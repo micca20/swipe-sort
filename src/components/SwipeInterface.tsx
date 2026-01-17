@@ -40,7 +40,7 @@ export function SwipeInterface() {
     try {
       if (direction === 'right' && selectedCollectionId) {
         // Add to collection
-        const result = await maintainerrApi.addToCollection(currentMedia.id, selectedCollectionId);
+        const result = await maintainerrApi.addToCollection(currentMedia.plexId, selectedCollectionId);
         if (result.success) {
           toast.success(`Added to ${selectedCollection?.name}`);
         } else {
@@ -48,7 +48,7 @@ export function SwipeInterface() {
         }
       } else if (direction === 'down') {
         // Exclude
-        const result = await maintainerrApi.excludeMedia(currentMedia.id);
+        const result = await maintainerrApi.excludeMedia(currentMedia.plexId);
         if (result.success) {
           toast.success('Marked as excluded');
         } else {

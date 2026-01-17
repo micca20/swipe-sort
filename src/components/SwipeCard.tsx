@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useSpring, animated, to } from 'react-spring';
 import { useDrag } from '@use-gesture/react';
 import type { MediaItem, SwipeDirection } from '@/types/maintainerr';
+import { useApp } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
 import { Film, Tv, Check, X, Ban } from 'lucide-react';
 
@@ -16,6 +17,7 @@ const SWIPE_THRESHOLD = 100;
 const SWIPE_VELOCITY = 0.5;
 
 export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
+  const { getPosterUrl } = useApp();
   const [isDragging, setIsDragging] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const hasSwipedRef = useRef(false);
@@ -110,9 +112,7 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
   const showLeft = xVal < -30;
   const showDown = yVal > 30;
 
-  const posterUrl = item.posterPath
-    ? `https://image.tmdb.org/t/p/w500${item.posterPath}`
-    : '/placeholder.svg';
+  const posterUrl = getPosterUrl(item.posterPath);
 
   return (
     <animated.div
