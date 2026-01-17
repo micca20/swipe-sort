@@ -40,8 +40,8 @@ export function SwipeInterface() {
     try {
       if (direction === 'right' && selectedCollectionId) {
         // Add to collection
-        console.log('[SwipeInterface] Adding to collection:', selectedCollectionId, 'PlexId:', currentMedia.plexId);
-        const result = await maintainerrApi.addToCollection(currentMedia.plexId, selectedCollectionId);
+        console.log('[SwipeInterface] Adding to collection:', selectedCollectionId, 'PlexId:', currentMedia.plexId, 'TmdbId:', currentMedia.tmdbId);
+        const result = await maintainerrApi.addToCollection(currentMedia.plexId, selectedCollectionId, currentMedia.tmdbId);
         console.log('[SwipeInterface] Add result:', result);
         if (result.success) {
           toast.success(`Added to ${selectedCollection?.name}`);

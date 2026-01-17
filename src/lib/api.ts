@@ -262,20 +262,25 @@ class MaintainerrApi {
     }
   }
 
-  async addToCollection(plexId: string, collectionId: number): Promise<ApiResponse<boolean>> {
+  async addToCollection(plexId: string, collectionId: number, tmdbId?: number): Promise<ApiResponse<boolean>> {
     try {
-      const requestBody = { 
+      // Build request body with all fields Maintainerr might expect
+      const requestBody: Record<string, unknown> = { 
         collectionId,
         plexId: parseInt(plexId, 10),
-        isManual: true  // Mark as manually added
+        isManual: true
       };
+      
+      // Add tmdbId if available
+      if (tmdbId) {
+        requestBody.tmdbId = tmdbId;
+      }
       
       console.log('[API] addToCollection request:', {
         url: `${this.getBaseUrl()}/api/collections/add`,
         body: requestBody
       });
 
-      // Correct endpoint: POST /api/collections/add
       const response = await fetch(`${this.getBaseUrl()}/api/collections/add`, {
         method: 'POST',
         headers: this.getHeaders(),
