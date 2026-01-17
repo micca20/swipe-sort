@@ -264,22 +264,37 @@ class MaintainerrApi {
 
   async addToCollection(plexId: string, collectionId: number): Promise<ApiResponse<boolean>> {
     try {
-      // Correct endpoint: POST /api/collections/media/add
-      const response = await fetch(`${this.getBaseUrl()}/api/collections/media/add`, {
+      const requestBody = { 
+        collectionId,
+        plexId: parseInt(plexId, 10)
+      };
+      
+      console.log('[API] addToCollection request:', {
+        url: `${this.getBaseUrl()}/api/collections/add`,
+        body: requestBody
+      });
+
+      // Correct endpoint: POST /api/collections/add (NOT /api/collections/media/add)
+      const response = await fetch(`${this.getBaseUrl()}/api/collections/add`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({ 
-          collectionId,
-          plexId: parseInt(plexId, 10)
-        }),
+        body: JSON.stringify(requestBody),
+      });
+
+      const responseText = await response.text();
+      console.log('[API] addToCollection response:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText
       });
 
       if (!response.ok) {
-        return { success: false, error: `Failed to add to collection: ${response.statusText}` };
+        return { success: false, error: `Failed to add to collection: ${response.status} ${responseText}` };
       }
 
       return { success: true, data: true };
     } catch (error) {
+      console.error('[API] addToCollection error:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to add to collection' 
