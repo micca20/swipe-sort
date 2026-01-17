@@ -4,7 +4,8 @@ import { useDrag } from '@use-gesture/react';
 import type { MediaItem, SwipeDirection } from '@/types/maintainerr';
 import { useApp } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
-import { Film, Tv, Check, X, Ban } from 'lucide-react';
+import { Film, Tv, Check, X, Ban, Loader2, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface SwipeCardProps {
   item: MediaItem;
@@ -106,7 +107,10 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
   };
 
   const posterUrl = getPosterUrl(item.posterPath);
-  const [posterSrc, setPosterSrc] = useState(posterUrl);
+  const [posterSrc, setPosterSrc] = useState<string | null>(null);
+  const [posterLoading, setPosterLoading] = useState(true);
+  const [posterError, setPosterError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Posters are behind the API key header; fetch as a blob and use an object URL.
   useEffect(() => {
@@ -114,10 +118,14 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
     let objectUrl: string | null = null;
 
     const load = async () => {
-      setPosterSrc(posterUrl);
+      setPosterLoading(true);
+      setPosterError(false);
 
-      if (!config?.apiKey) return;
-      if (!posterUrl || posterUrl === '/placeholder.svg') return;
+      if (!config?.apiKey || !posterUrl || posterUrl === '/placeholder.svg') {
+        setPosterSrc('/placeholder.svg');
+        setPosterLoading(false);
+        return;
+      }
 
       try {
         const res = await fetch(posterUrl, {
@@ -130,9 +138,15 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
 
         const blob = await res.blob();
         objectUrl = URL.createObjectURL(blob);
-        if (!cancelled) setPosterSrc(objectUrl);
+        if (!cancelled) {
+          setPosterSrc(objectUrl);
+          setPosterLoading(false);
+        }
       } catch {
-        if (!cancelled) setPosterSrc('/placeholder.svg');
+        if (!cancelled) {
+          setPosterError(true);
+          setPosterLoading(false);
+        }
       }
     };
 
@@ -142,7 +156,12 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [posterUrl, config?.apiKey]);
+  }, [posterUrl, config?.apiKey, retryCount]);
+
+  const handleRetry = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRetryCount(prev => prev + 1);
+  };
 
   return (
     <animated.div
@@ -163,14 +182,48 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
     >
       <div className="relative w-full h-full bg-card rounded-2xl overflow-hidden shadow-2xl">
         {/* Poster */}
-        <div className="relative w-full h-[60%]">
-          <img
-            src={posterSrc}
-            alt={`Poster for ${item.title}`}
-            className="w-full h-full object-cover"
-            draggable={false}
-            loading="lazy"
-          />
+        <div className="relative w-full h-[60%] bg-muted">
+          {/* Loading/Error placeholder with title and year */}
+          {(posterLoading || posterError) && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-10 bg-muted">
+              <div className="w-16 h-16 rounded-xl bg-background/50 flex items-center justify-center mb-3">
+                {item.type === 'movie' ? (
+                  <Film className="w-8 h-8 text-muted-foreground" />
+                ) : (
+                  <Tv className="w-8 h-8 text-muted-foreground" />
+                )}
+              </div>
+              
+              <h3 className="text-lg font-semibold text-foreground line-clamp-2 mb-1">
+                {item.title}
+              </h3>
+              <span className="text-sm text-muted-foreground">{item.year}</span>
+              
+              {posterLoading ? (
+                <Loader2 className="w-6 h-6 animate-spin text-primary mt-4" />
+              ) : posterError ? (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleRetry}
+                  className="mt-4"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Retry
+                </Button>
+              ) : null}
+            </div>
+          )}
+          
+          {/* Actual poster image */}
+          {posterSrc && !posterLoading && !posterError && (
+            <img
+              src={posterSrc}
+              alt={`Poster for ${item.title}`}
+              className="w-full h-full object-cover"
+              draggable={false}
+            />
+          )}
           
           {/* Swipe Indicators */}
           <animated.div

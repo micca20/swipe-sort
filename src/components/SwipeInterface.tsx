@@ -35,11 +35,14 @@ export function SwipeInterface() {
     if (!currentMedia || isProcessing) return;
 
     setIsProcessing(true);
+    console.log('[SwipeInterface] Swipe:', direction, 'Media:', currentMedia.title, 'PlexId:', currentMedia.plexId, 'CollectionId:', selectedCollectionId);
 
     try {
       if (direction === 'right' && selectedCollectionId) {
         // Add to collection
+        console.log('[SwipeInterface] Adding to collection:', selectedCollectionId, 'PlexId:', currentMedia.plexId);
         const result = await maintainerrApi.addToCollection(currentMedia.plexId, selectedCollectionId);
+        console.log('[SwipeInterface] Add result:', result);
         if (result.success) {
           toast.success(`Added to ${selectedCollection?.name}`);
         } else {
@@ -47,7 +50,9 @@ export function SwipeInterface() {
         }
       } else if (direction === 'down') {
         // Exclude
+        console.log('[SwipeInterface] Excluding media:', currentMedia.plexId);
         const result = await maintainerrApi.excludeMedia(currentMedia.plexId);
+        console.log('[SwipeInterface] Exclude result:', result);
         if (result.success) {
           toast.success('Marked as excluded');
         } else {
