@@ -266,7 +266,8 @@ class MaintainerrApi {
     try {
       const requestBody = { 
         collectionId,
-        plexId: parseInt(plexId, 10)
+        plexId: parseInt(plexId, 10),
+        isManual: true  // Mark as manually added
       };
       
       console.log('[API] addToCollection request:', {
@@ -274,7 +275,7 @@ class MaintainerrApi {
         body: requestBody
       });
 
-      // Correct endpoint: POST /api/collections/add (NOT /api/collections/media/add)
+      // Correct endpoint: POST /api/collections/add
       const response = await fetch(`${this.getBaseUrl()}/api/collections/add`, {
         method: 'POST',
         headers: this.getHeaders(),
@@ -327,20 +328,12 @@ class MaintainerrApi {
     }
   }
 
-  // Get poster URL - prefer TMDB CDN for reliable loading
-  getPosterUrl(posterPath: string | null, tmdbId?: number, mediaType?: 'movie' | 'tv'): string {
-    // If we have a TMDB ID, use the TMDB Image CDN (no auth required)
-    if (tmdbId) {
-      // TMDB poster paths start with / like /abc123.jpg
-      // But we need to fetch the actual path from TMDB API or use a known pattern
-      // For now, construct a proxy URL that Maintainerr might support
-      return `https://image.tmdb.org/t/p/w500${posterPath}`;
-    }
-    
+  // Get poster URL - use Plex proxy through Maintainerr
+  getPosterUrl(posterPath: string | null): string {
     if (!posterPath) return '/placeholder.svg';
     if (!this.config) return '/placeholder.svg';
     
-    // Fallback to Plex proxy through Maintainerr
+    // Always use the Plex proxy through Maintainerr since posterPath is a Plex path
     return `${this.getBaseUrl()}/api/plex/thumb?url=${encodeURIComponent(posterPath)}`;
   }
 }
