@@ -277,11 +277,11 @@ class MaintainerrApi {
       }
       
       console.log('[API] addToCollection request:', {
-        url: `${this.getBaseUrl()}/api/collections/add`,
+        url: `${this.getBaseUrl()}/api/collections/media/add`,
         body: requestBody
       });
 
-      const response = await fetch(`${this.getBaseUrl()}/api/collections/add`, {
+      const response = await fetch(`${this.getBaseUrl()}/api/collections/media/add`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify(requestBody),
