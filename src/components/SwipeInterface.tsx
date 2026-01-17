@@ -3,14 +3,13 @@ import { useApp } from '@/context/AppContext';
 import { SwipeCard } from './SwipeCard';
 import { ActionButtons } from './ActionButtons';
 import { MediaDetailModal } from './MediaDetailModal';
-import { CollectionSelector } from './CollectionSelector';
 import { FilterSheet } from './FilterSheet';
 import { ProgressTracker } from './ProgressTracker';
 import { Button } from '@/components/ui/button';
 import { maintainerrApi } from '@/lib/api';
 import { addToSwipeHistory } from '@/lib/storage';
 import type { SwipeDirection } from '@/types/maintainerr';
-import { Settings, RefreshCw, Film, Loader2 } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Film, Loader2, FolderPlus } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function SwipeInterface() {
@@ -21,7 +20,7 @@ export function SwipeInterface() {
     advanceToNext, 
     collections,
     selectedCollectionId,
-    disconnect,
+    goBackToLibrary,
     refreshData,
     isLoading,
     remainingCount,
@@ -76,8 +75,7 @@ export function SwipeInterface() {
 
   const handleAction = useCallback((direction: SwipeDirection) => {
     if (direction === 'right' && !selectedCollectionId) {
-      toast.warning('Please select a collection first');
-      return;
+      toast.warning('No collection selected - swiping right will just skip');
     }
     handleSwipe(direction);
   }, [handleSwipe, selectedCollectionId]);
@@ -101,8 +99,8 @@ export function SwipeInterface() {
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="ghost" onClick={disconnect}>
-            Disconnect
+          <Button variant="ghost" onClick={goBackToLibrary}>
+            Change Library
           </Button>
         </div>
       </div>
@@ -113,15 +111,25 @@ export function SwipeInterface() {
     <div className="min-h-screen flex flex-col safe-area-inset-top safe-area-inset-bottom">
       {/* Header */}
       <header className="flex items-center justify-between p-4 gap-3">
-        <CollectionSelector />
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={goBackToLibrary}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          {selectedCollection ? (
+            <div className="flex items-center gap-2 text-sm">
+              <FolderPlus className="w-4 h-4 text-primary" />
+              <span className="text-muted-foreground">Adding to:</span>
+              <span className="font-medium">{selectedCollection.name}</span>
+            </div>
+          ) : (
+            <span className="text-sm text-muted-foreground">Browse Only Mode</span>
+          )}
+        </div>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" onClick={refreshData} disabled={isLoading}>
             <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
           <FilterSheet />
-          <Button variant="ghost" size="icon" onClick={disconnect}>
-            <Settings className="w-5 h-5" />
-          </Button>
         </div>
       </header>
 

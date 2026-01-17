@@ -1,10 +1,12 @@
 import { useApp } from '@/context/AppContext';
 import { SetupScreen } from '@/components/SetupScreen';
+import { LibrarySelector } from '@/components/LibrarySelector';
+import { CollectionSetupScreen } from '@/components/CollectionSetupScreen';
 import { SwipeInterface } from '@/components/SwipeInterface';
 import { Loader2 } from 'lucide-react';
 
 const Index = () => {
-  const { isConnected, isLoading } = useApp();
+  const { appStep, isConnected, isLoading } = useApp();
 
   // Initial loading state
   if (isLoading && !isConnected) {
@@ -15,13 +17,22 @@ const Index = () => {
     );
   }
 
-  // Show setup if not connected
+  // If not connected, always show setup
   if (!isConnected) {
     return <SetupScreen />;
   }
 
-  // Main swipe interface
-  return <SwipeInterface />;
+  // Route based on app step
+  switch (appStep) {
+    case 'library':
+      return <LibrarySelector />;
+    case 'collection':
+      return <CollectionSetupScreen />;
+    case 'swipe':
+      return <SwipeInterface />;
+    default:
+      return <SetupScreen />;
+  }
 };
 
 export default Index;
