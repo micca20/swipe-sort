@@ -55,6 +55,9 @@ export function SwipeInterface() {
         console.log('[SwipeInterface] Add result:', result);
         if (result.success) {
           toast.success(`Added to ${selectedCollection?.name}`);
+          // Refresh the collection after adding
+          const refreshResult = await maintainerrApi.refreshCollection(selectedCollectionId);
+          console.log('[SwipeInterface] Refresh result:', refreshResult);
         } else {
           toast.error(result.error || 'Failed to add to collection');
         }

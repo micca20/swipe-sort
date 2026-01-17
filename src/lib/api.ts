@@ -310,6 +310,36 @@ class MaintainerrApi {
     }
   }
 
+  async refreshCollection(collectionId: number): Promise<ApiResponse<boolean>> {
+    try {
+      console.log('[API] refreshCollection request:', {
+        url: `${this.getBaseUrl()}/api/collections/${collectionId}/refresh`
+      });
+
+      const response = await fetch(`${this.getBaseUrl()}/api/collections/${collectionId}/refresh`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+      });
+
+      console.log('[API] refreshCollection response:', {
+        status: response.status,
+        statusText: response.statusText
+      });
+
+      if (!response.ok) {
+        return { success: false, error: `Failed to refresh collection: ${response.statusText}` };
+      }
+
+      return { success: true, data: true };
+    } catch (error) {
+      console.error('[API] refreshCollection error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to refresh collection' 
+      };
+    }
+  }
+
   async excludeMedia(plexId: string, ruleId?: number): Promise<ApiResponse<boolean>> {
     try {
       // Correct endpoint: POST /api/rules/exclusion
