@@ -12,6 +12,7 @@ const STORAGE_KEYS = {
   SWIPE_HISTORY: 'maintainarr_swipe_history',
   APP_STEP: 'maintainarr_app_step',
   SELECTED_LIBRARY: 'maintainarr_selected_library',
+  PROCESSED_ITEMS: 'maintainarr_processed_items',
 } as const;
 
 // Config
@@ -41,6 +42,29 @@ export function getCurrentIndex(): number {
 export function resetProgress(): void {
   localStorage.removeItem(STORAGE_KEYS.CURRENT_INDEX);
   localStorage.removeItem(STORAGE_KEYS.SWIPE_HISTORY);
+  localStorage.removeItem(STORAGE_KEYS.PROCESSED_ITEMS);
+}
+
+// Processed items (items user has swiped on - tracked by plexId)
+export function saveProcessedItems(plexIds: string[]): void {
+  localStorage.setItem(STORAGE_KEYS.PROCESSED_ITEMS, JSON.stringify(plexIds));
+}
+
+export function getProcessedItems(): string[] {
+  const stored = localStorage.getItem(STORAGE_KEYS.PROCESSED_ITEMS);
+  return stored ? JSON.parse(stored) : [];
+}
+
+export function addProcessedItem(plexId: string): void {
+  const items = getProcessedItems();
+  if (!items.includes(plexId)) {
+    items.push(plexId);
+    saveProcessedItems(items);
+  }
+}
+
+export function clearProcessedItems(): void {
+  localStorage.removeItem(STORAGE_KEYS.PROCESSED_ITEMS);
 }
 
 // Selected collection
