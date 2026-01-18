@@ -112,9 +112,9 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
   const [retryCount, setRetryCount] = useState(0);
 
   // Fetch poster via TMDB image endpoint through Maintainerr
+  // The endpoint returns a poster_path string, not the image itself
   useEffect(() => {
     let cancelled = false;
-    let objectUrl: string | null = null;
 
     const load = async () => {
       setPosterLoading(true);
@@ -127,31 +127,35 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
       }
 
       // Use TMDB image endpoint if we have tmdbId
-      // Endpoint: GET /api/moviedb/image/:type/:tmdbId
+      // Endpoint: GET /api/moviedb/image/:type/:tmdbId returns poster_path string
       if (item.tmdbId) {
         const type = item.type === 'movie' ? 'movie' : 'tv';
-        const imageUrl = `${config.baseUrl.replace(/\/$/, '')}/api/moviedb/image/${type}/${item.tmdbId}`;
+        const apiUrl = `${config.baseUrl.replace(/\/$/, '')}/api/moviedb/image/${type}/${item.tmdbId}`;
 
         try {
-          const res = await fetch(imageUrl, {
+          const res = await fetch(apiUrl, {
             headers: { 'X-Api-Key': config.apiKey },
           });
 
           if (!res.ok) {
-            throw new Error(`Image fetch failed: ${res.status}`);
+            throw new Error(`API request failed: ${res.status}`);
           }
 
-          // Check if we actually got image data
-          const contentType = res.headers.get('content-type') || '';
-          if (!contentType.startsWith('image/')) {
-            throw new Error('Not an image');
+          // The endpoint returns a JSON string with the poster_path
+          const posterPath = await res.text();
+          
+          // Clean up the response (remove quotes if present)
+          const cleanPath = posterPath.replace(/^"|"$/g, '').trim();
+          
+          if (!cleanPath || cleanPath === 'null' || cleanPath === 'undefined') {
+            throw new Error('No poster path returned');
           }
 
-          const blob = await res.blob();
-          objectUrl = URL.createObjectURL(blob);
+          // Construct the full TMDB image URL
+          const tmdbImageUrl = `https://image.tmdb.org/t/p/w500${cleanPath}`;
 
           if (!cancelled) {
-            setPosterSrc(objectUrl);
+            setPosterSrc(tmdbImageUrl);
             setPosterLoading(false);
           }
         } catch (error) {
@@ -172,7 +176,6 @@ export function SwipeCard({ item, onSwipe, onTap, isTop }: SwipeCardProps) {
 
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [item.tmdbId, item.type, config?.apiKey, config?.baseUrl, retryCount]);
 
