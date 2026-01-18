@@ -77,6 +77,7 @@ export interface Collection {
   mediaCount: number;
   isActive: boolean;
   librarySectionId?: number;
+  mediaPlexIds: number[]; // Plex IDs of media already in this collection
 }
 
 export interface Rule {

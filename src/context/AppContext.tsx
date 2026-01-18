@@ -176,6 +176,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const filteredMedia = useCallback(() => {
     let items = [...mediaItems];
     
+    // Filter out media already in the selected collection
+    if (selectedCollectionId) {
+      const selectedCollection = collections.find(c => c.id === selectedCollectionId);
+      if (selectedCollection?.mediaPlexIds?.length) {
+        const existingPlexIds = new Set(selectedCollection.mediaPlexIds.map(id => String(id)));
+        items = items.filter(item => !existingPlexIds.has(item.plexId));
+      }
+    }
+    
     // Filter by type
     if (filters.mediaType !== 'all') {
       items = items.filter(item => item.type === filters.mediaType);
@@ -199,7 +208,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     
     return items;
-  }, [mediaItems, filters]);
+  }, [mediaItems, filters, selectedCollectionId, collections]);
 
   const connect = useCallback(async (newConfig: MaintainerrConfig): Promise<boolean> => {
     setIsLoading(true);
