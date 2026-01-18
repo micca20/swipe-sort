@@ -253,6 +253,7 @@ class MaintainerrApi {
         mediaCount: col.media?.length || 0,
         isActive: col.isActive,
         librarySectionId: col.librarySectionId,
+        mediaPlexIds: col.media?.map(m => m.plexId) || [],
       }));
       
       return { success: true, data: collections };
