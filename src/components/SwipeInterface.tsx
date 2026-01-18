@@ -79,8 +79,8 @@ export function SwipeInterface() {
         timestamp: Date.now(),
       });
 
-      // Move to next
-      advanceToNext();
+      // Move to next - pass the current item's plexId to mark it as processed
+      advanceToNext(currentMedia.plexId);
     } catch (error) {
       toast.error('An error occurred');
     } finally {

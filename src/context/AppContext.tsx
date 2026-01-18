@@ -34,7 +34,7 @@ interface AppContextType {
   goToSwipe: () => void;
   setSelectedCollectionId: (id: number | null) => void;
   setFilters: (filters: FilterOptions) => void;
-  advanceToNext: () => void;
+  advanceToNext: (processedPlexId?: string) => void;
   resetProgress: () => void;
   refreshData: () => Promise<void>;
   getPosterUrl: (posterPath: string | null) => string;
@@ -65,6 +65,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedCollectionId, setSelectedCollectionIdState] = useState<number | null>(null);
   const [filters, setFiltersState] = useState<FilterOptions>({ mediaType: 'all', sortBy: 'oldest' });
+  const [processedItems, setProcessedItems] = useState<Set<string>>(new Set());
 
   // Initialize from storage
   useEffect(() => {
@@ -105,6 +106,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurrentIndex(storedIndex);
     setSelectedCollectionIdState(storedCollection);
     setFiltersState(storedFilters);
+    
+    // Restore processed items
+    const storedProcessed = storage.getProcessedItems();
+    setProcessedItems(new Set(storedProcessed));
+    
     setIsLoading(false);
   }, []);
 
@@ -176,6 +182,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const filteredMedia = useCallback(() => {
     let items = [...mediaItems];
     
+    // Filter out items already processed (swiped on)
+    items = items.filter(item => !processedItems.has(item.plexId));
+    
     // Filter out media already in the selected collection
     if (selectedCollectionId) {
       const selectedCollection = collections.find(c => c.id === selectedCollectionId);
@@ -208,7 +217,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     
     return items;
-  }, [mediaItems, filters, selectedCollectionId, collections]);
+  }, [mediaItems, filters, selectedCollectionId, collections, processedItems]);
 
   const connect = useCallback(async (newConfig: MaintainerrConfig): Promise<boolean> => {
     setIsLoading(true);
@@ -310,14 +319,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     storage.saveCurrentIndex(0);
   }, []);
 
-  const advanceToNext = useCallback(() => {
-    const newIndex = currentIndex + 1;
-    setCurrentIndex(newIndex);
-    storage.saveCurrentIndex(newIndex);
-  }, [currentIndex]);
+  const advanceToNext = useCallback((processedPlexId?: string) => {
+    // Mark the item as processed if plexId provided
+    if (processedPlexId) {
+      const newProcessed = new Set(processedItems);
+      newProcessed.add(processedPlexId);
+      setProcessedItems(newProcessed);
+      storage.addProcessedItem(processedPlexId);
+    }
+    
+    // Since processed items are filtered out, currentIndex stays at 0
+    // But we keep the index logic for compatibility
+    setCurrentIndex(0);
+    storage.saveCurrentIndex(0);
+  }, [processedItems]);
 
   const resetProgressAction = useCallback(() => {
     setCurrentIndex(0);
+    setProcessedItems(new Set());
     storage.resetProgress();
   }, []);
 
